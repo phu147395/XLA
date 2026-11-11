@@ -1,0 +1,76 @@
+/* Custom CSS for AI Food Vision */
+
+.tab-btn {
+    color: #94a3b8;
+    background: transparent;
+}
+
+.tab-btn:hover {
+    color: #f1f5f9;
+    background-color: rgba(51, 65, 85, 0.4);
+}
+
+.tab-btn.active {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 14px 0 rgba(249, 115, 22, 0.35);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tab-content:not(.hidden) {
+    animation: fadeIn 0.25s ease-out forwards;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* Range input styling */
+input[type=range] {
+    height: 6px;
+    background: #1e293b;
+    border-radius: 4px;
+}
+
+/* Snapshots thumbnails */
+.snapshot-thumb {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #334155;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+
+.snapshot-thumb:hover {
+    transform: scale(1.05);
+    border-color: #f97316;
+}

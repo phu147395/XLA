@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Vision - Nhận diện Món ăn & Xử lý Ảnh</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-orange-500 selection:text-white">
+    <!-- Navbar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/25">
+                    <i data-lucide="scan" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">
+                        AI Food Vision
+                    </h1>
+                    <p class="text-xs text-slate-400">Hệ Thống Thị Giác Máy Tính & Nhận Diện Đa Phương Tiện</p>
+                </div>
+            </div>
+
+            <!-- Model Status & Overview Button -->
+            <div class="flex items-center gap-3">
+                <button id="btnOpenOverview" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-400 hover:text-orange-300 text-xs font-medium transition-all shadow-sm">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span>Tổng quan 10 lớp món ăn</span>
+                </button>
+                <div id="modelStatusBadge" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="modelInfoText" class="text-slate-300">Đang nạp mô hình...</span>
+                </div>
+                <div id="deviceBadge" class="px-2.5 py-1 rounded-md bg-orange-950/60 border border-orange-800 text-orange-400 font-mono text-xs font-semibold">
+                    CUDA/CPU
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
+        
+        <!-- Tabs Navigation -->
+        <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 p-1.5 bg-slate-800/80 backdrop-blur border border-slate-700/80 rounded-2xl max-w-fit mx-auto sm:mx-0 shadow-xl">
+            <button onclick="switchTab('image')" id="tabBtn-image" class="tab-btn active flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200">
+                <i data-lucide="image" class="w-4 h-4"></i>
+                <span>Tải lên Hình ảnh</span>
+            </button>
+            <button onclick="switchTab('video')" id="tabBtn-video" class="tab-btn flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200">
+                <i data-lucide="film" class="w-4 h-4"></i>
+                <span>Tải lên Video</span>
+            </button>
+            <button onclick="switchTab('camera')" id="tabBtn-camera" class="tab-btn flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200">
+                <i data-lucide="camera" class="w-4 h-4"></i>
+                <span>Camera Trực tiếp</span>
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                </span>
+            </button>
+        </div>
+
+        <!-- ================= SECTION 1: HÌNH ẢNH ================= -->
+        <section id="section-image" class="tab-content transition-opacity duration-300">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Upload & Input Card -->
+                <div class="lg:col-span-6 flex flex-col gap-4">
+                    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                                <i data-lucide="upload-cloud" class="w-5 h-5 text-orange-400"></i>
+                                Chọn hoặc Kéo thả hình ảnh
+                            </h2>
+                            <span class="text-xs text-slate-400">Hỗ trợ JPG, PNG, WEBP</span>
+                        </div>
+
+                        <!-- Drop Zone -->
+                        <div id="imageDropZone" class="group relative border-2 border-dashed border-slate-600 hover:border-orange-500/80 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 bg-slate-900/40 hover:bg-slate-900/60 min-h-[260px]">
+                            <input type="file" id="imageFileInput" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
+                            <div id="imageEmptyPrompt" class="text-center">
+                                <div class="w-16 h-16 rounded-2xl bg-slate-800 group-hover:bg-orange-500/10 border border-slate-700 group-hover:border-orange-500/30 flex items-center justify-center mx-auto mb-3 transition-colors">
+                                    <i data-lucide="image-plus" class="w-8 h-8 text-slate-400 group-hover:text-orange-400 transition-colors"></i>
+                                </div>
+                                <p class="text-sm font-medium text-slate-300 mb-1">Nhấn để chọn ảnh hoặc kéo thả vào đây</p>
+                                <p class="text-xs text-slate-500">Kích thước tệp tối đa: 20MB</p>
+                            </div>
+                            <img id="imagePreview" class="hidden max-h-72 w-auto object-contain rounded-xl shadow-lg" alt="Preview">
+                        </div>
+
+                        <!-- Sample Images -->
+                        <div class="mt-4 pt-4 border-t border-slate-700/60">
+                            <p class="text-xs text-slate-400 mb-2">Hoặc thử với ảnh mẫu có sẵn:</p>
+                            <div class="flex flex-wrap gap-2" id="sampleImagesContainer">
+                                <!-- Populated dynamically or static buttons -->
+                            </div>
+                        </div>
+
+                        <!-- Action Button -->
+                        <button id="btnAnalyzeImage" disabled class="mt-5 w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            <span id="btnAnalyzeText">Phân Tích Bằng AI</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Result Card -->
+                <div class="lg:col-span-6 flex flex-col gap-4">
+                    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 shadow-xl flex-1 flex flex-col min-h-[450px]">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                                <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+                                Kết Quả Nhận Diện
+                            </h2>
+                            <div id="inferenceTimeBadge" class="hidden text-xs text-slate-400 font-mono bg-slate-900 px-2.5 py-1 rounded-md border border-slate-700">
+                                -- ms
+                            </div>
+                        </div>
+
+                        <!-- Placeholder state -->
+                        <div id="imageResultEmpty" class="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">
+                            <i data-lucide="bot" class="w-12 h-12 mb-3 text-slate-600"></i>
+                            <p class="text-sm">Chưa có dữ liệu phân tích</p>
+                            <p class="text-xs text-slate-600 mt-1">Hãy tải ảnh lên và nhấn "Phân Tích Bằng AI"</p>
+                        </div>
+
+                        <!-- Result Loaded state -->
+                        <div id="imageResultContent" class="hidden flex-1 flex flex-col gap-5">
+                            <!-- Visual Box -->
+                            <div class="relative bg-slate-950 rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center min-h-[220px]">
+                                <img id="imageResultDisplay" class="max-h-80 w-auto object-contain" alt="Result">
+                            </div>
+
+                            <!-- Top Detection Banner -->
+                            <div class="p-4 rounded-xl bg-gradient-to-r from-orange-500/15 to-amber-500/10 border border-orange-500/30 flex items-start justify-between">
+                                <div>
+                                    <span class="text-xs uppercase tracking-wider text-orange-400 font-bold">Món ăn dự đoán (Top 1)</span>
+                                    <h3 id="topClassName" class="text-2xl font-extrabold text-white mt-0.5">--</h3>
+                                    <p id="topClassDesc" class="text-xs text-slate-300 mt-1">--</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xs text-slate-400">Độ tin cậy</span>
+                                    <div id="topConfidence" class="text-2xl font-black text-emerald-400">--%</div>
+                                </div>
+                            </div>
+
+                            <!-- Ingredients Breakdown Section -->
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="utensils" class="w-4 h-4"></i>
+                                        Phân Tích Thành Phần & Nguyên Liệu
+                                    </h4>
+                                    <span id="dishCategoryBadge" class="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
+                                        Món Ăn Truyền Thống
+                                    </span>
+                                </div>
+
+                                <!-- Ingredient Cards Container -->
+                                <div id="ingredientCardsContainer" class="space-y-2.5">
+                                    <!-- Dynamic ingredient items with progress bar & description -->
+                                </div>
+                            </div>
+
+                            <!-- Nutrition Card -->
+                            <div id="dishInfoCard" class="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80 text-xs text-slate-300 space-y-3">
+                                <div class="font-semibold text-slate-200 flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5">
+                                        <i data-lucide="flame" class="w-4 h-4 text-orange-400"></i>
+                                        Hàm Lượng Dinh Dưỡng Ước Tính:
+                                    </span>
+                                    <span id="nutritionCaloriesBadge" class="font-mono text-emerald-400 font-bold text-sm">--</span>
+                                </div>
+                                <div id="nutritionMacrosGrid" class="grid grid-cols-3 gap-2 text-center pt-1">
+                                    <!-- Carbs, Protein, Fat badges -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 2: VIDEO ================= -->
+        <section id="section-video" class="tab-content hidden transition-opacity duration-300">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Video Upload Card -->
+                <div class="lg:col-span-5 flex flex-col gap-4">
+                    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 shadow-xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                                <i data-lucide="video" class="w-5 h-5 text-orange-400"></i>
+                                Tải Lên Video Phân Tích
+                            </h2>
+                            <span class="text-xs text-slate-400">MP4, WEBM, AVI, MOV</span>
+                        </div>
+
+                        <!-- Drop Zone -->
+                        <div id="videoDropZone" class="group relative border-2 border-dashed border-slate-600 hover:border-orange-500/80 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 bg-slate-900/40 hover:bg-slate-900/60 min-h-[220px]">
+                            <input type="file" id="videoFileInput" accept="video/*" class="absolute inset-0 opacity-0 cursor-pointer">
+                            <div id="videoEmptyPrompt" class="text-center">
+                                <div class="w-14 h-14 rounded-2xl bg-slate-800 group-hover:bg-orange-500/10 border border-slate-700 group-hover:border-orange-500/30 flex items-center justify-center mx-auto mb-3 transition-colors">
+                                    <i data-lucide="film" class="w-7 h-7 text-slate-400 group-hover:text-orange-400 transition-colors"></i>
+                                </div>
+                                <p class="text-sm font-medium text-slate-300 mb-1">Kéo thả tệp video vào đây</p>
+                                <p class="text-xs text-slate-500">Khuyến nghị video ngắn (5 - 30 giây)</p>
+                            </div>
+                            <video id="videoInputPreview" controls class="hidden max-h-56 w-full rounded-xl shadow-lg"></video>
+                        </div>
+
+                        <!-- Options -->
+                        <div class="mt-4 space-y-3">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-slate-300">Tốc độ lấy mẫu (Bước nhảy khung):</span>
+                                <span id="frameStepVal" class="font-mono text-orange-400 font-bold">Mỗi 2 khung hình</span>
+                            </div>
+                            <input type="range" id="frameStepInput" min="1" max="10" value="2" class="w-full accent-orange-500 cursor-pointer">
+                            <p class="text-[11px] text-slate-500">Giá trị lớn giúp xử lý video nhanh hơn, giá trị 1 xử lý từng khung hình chuẩn xác nhất.</p>
+                        </div>
+
+                        <!-- Processing Progress -->
+                        <div id="videoProgressWrapper" class="hidden mt-4 space-y-2">
+                            <div class="flex justify-between text-xs">
+                                <span id="videoStatusText" class="text-orange-300 animate-pulse">Đang xử lý các khung hình...</span>
+                                <span id="videoPercentText" class="font-mono text-slate-300">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-700">
+                                <div id="videoProgressBar" class="bg-gradient-to-r from-orange-500 to-amber-400 h-2.5 rounded-full transition-all duration-200" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Action Button -->
+                        <button id="btnProcessVideo" disabled class="mt-5 w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="play" class="w-5 h-5"></i>
+                            <span id="btnProcessVideoText">Bắt Đầu Xử Lý Video</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Video Output Card -->
+                <div class="lg:col-span-7 flex flex-col gap-4">
+                    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 shadow-xl flex-1 flex flex-col min-h-[450px]">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                                <i data-lucide="monitor-play" class="w-5 h-5 text-emerald-400"></i>
+                                Video Đã Gán Nhãn Nhận Diện
+                            </h2>
+                            <a id="btnDownloadVideo" href="#" download class="hidden text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1 font-semibold">
+                                <i data-lucide="download" class="w-4 h-4"></i> Tải Video Về Máy
+                            </a>
+                        </div>
+
+                        <div id="videoResultEmpty" class="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-500 border border-dashed border-slate-700 rounded-xl">
+                            <i data-lucide="clapperboard" class="w-12 h-12 mb-3 text-slate-600"></i>
+                            <p class="text-sm">Video xử lý xong sẽ hiển thị tại đây</p>
+                            <p class="text-xs text-slate-600 mt-1">Mô hình AI sẽ vẽ nhãn & tỉ lệ nhận diện trực tiếp vào từng khung hình</p>
+                        </div>
+
+                        <div id="videoResultContent" class="hidden flex-1 flex flex-col gap-4">
+                            <div class="relative bg-black rounded-xl overflow-hidden border border-slate-700 shadow-2xl">
+                                <video id="videoOutputPlayer" controls class="w-full max-h-[380px] mx-auto"></video>
+                            </div>
+
+                            <!-- Video Stats Breakdown -->
+                            <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80">
+                                <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                    <i data-lucide="bar-chart-2" class="w-4 h-4 text-orange-400"></i>
+                                    Thống Kê Xuất Hiện Trong Video:
+                                </h4>
+                                <div id="videoStatsContainer" class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                                    <!-- Dynamic chips -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 3: CAMERA TRỰC TIẾP ================= -->
+        <section id="section-camera" class="tab-content hidden transition-opacity duration-300">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Camera Viewport -->
+                <div class="lg:col-span-8 flex flex-col gap-4">
+                    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 shadow-xl">
+                        <!-- Top Controls Bar -->
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div class="flex items-center gap-2">
+                                <label for="cameraSelect" class="text-xs text-slate-400 font-medium">Thiết bị:</label>
+                                <select id="cameraSelect" class="bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 px-3 py-1.5 focus:outline-none focus:border-orange-500">
+                                    <option value="">Đang tìm camera...</option>
+                                </select>
+                            </div>
+
+                            <div class="flex items-center gap-4 text-xs font-mono">
+                                <div class="flex items-center gap-1.5 text-slate-400">
+                                    <span class="w-2 h-2 rounded-full bg-slate-600" id="camStatusDot"></span>
+                                    <span id="camStatusText">Sẵn sàng</span>
+                                </div>
+                                <div class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-orange-400">
+                                    FPS: <span id="fpsCounter">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Video Feed Area with Canvas Overlay -->
+                        <div class="relative bg-black rounded-2xl overflow-hidden border border-slate-700 aspect-video flex items-center justify-center shadow-inner group">
+                            <!-- Raw Video Stream (hidden or base) -->
+                            <video id="webcamElement" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                            
+                            <!-- Overlay Canvas for AI bounding boxes & labels -->
+                            <canvas id="overlayCanvas" class="absolute inset-0 w-full h-full object-cover pointer-events-none"></canvas>
+
+                            <!-- Placeholder when camera is off -->
+                            <div id="cameraOffPlaceholder" class="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center text-center p-6 text-slate-500 z-10">
+                                <div class="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-3">
+                                    <i data-lucide="camera-off" class="w-8 h-8 text-slate-600"></i>
+                                </div>
+                                <p class="text-base font-medium text-slate-300">Camera hiện đang tắt</p>
+                                <p class="text-xs text-slate-600 mt-1 max-w-sm">Nhấn nút "Bật Camera" bên dưới và cấp quyền truy cập webcam trên trình duyệt của bạn.</p>
+                            </div>
+
+                            <!-- Live Detection HUD Badge -->
+                            <div id="liveDetectionBadge" class="hidden absolute top-4 left-4 z-20 px-3 py-2 rounded-xl bg-slate-900/90 backdrop-blur border border-orange-500/50 shadow-xl flex items-center gap-3">
+                                <div class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></div>
+                                <div>
+                                    <div class="text-[10px] uppercase font-bold text-orange-400 tracking-wider">Phát hiện trực tiếp:</div>
+                                    <div id="liveDetectionDish" class="text-sm font-extrabold text-white">--</div>
+                                </div>
+                                <div id="liveDetectionScore" class="text-xs font-mono font-bold text-emerald-400 px-2 py-0.5 rounded bg-slate-800">
+                                    --%
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Buttons Row -->
+                        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <button id="btnToggleCamera" class="py-2.5 px-5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/20 flex items-center gap-2 text-sm transition-all">
+                                    <i data-lucide="video" class="w-4 h-4"></i>
+                                    <span id="btnToggleCameraText">Bật Camera</span>
+                                </button>
+                                <button id="btnCaptureSnapshot" disabled class="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-200 border border-slate-700 font-medium rounded-xl flex items-center gap-2 text-sm transition-all">
+                                    <i data-lucide="camera" class="w-4 h-4"></i>
+                                    <span>Chụp Ảnh Nhanh</span>
+                                </button>
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                                    <input type="checkbox" id="chkAudioTTS" class="accent-orange-500 rounded">
+                                    <span>Đọc tên món (Giọng nói AI)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Camera Info & Snapshots Sidebar -->
+                <div class="lg:col-span-4 flex flex-col gap-4">
+                    <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 shadow-xl flex-1 flex flex-col">
+                        <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2 mb-4">
+                            <i data-lucide="activity" class="w-5 h-5 text-orange-400"></i>
+                            Trạng Thái Phân Tích Live
+                        </h2>
+
+                        <!-- Live probabilities -->
+                        <div class="space-y-3 mb-6">
+                            <div class="flex justify-between text-xs text-slate-400">
+                                <span>Tần suất phân tích:</span>
+                                <span id="analysisFreqVal" class="text-orange-400 font-semibold font-mono">5 lần / giây</span>
+                            </div>
+                            <input type="range" id="analysisFreqSlider" min="1" max="10" value="5" class="w-full accent-orange-500 cursor-pointer">
+                        </div>
+
+                        <!-- Live Top Classes Bars -->
+                        <div class="flex-1">
+                            <h4 class="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                <i data-lucide="utensils" class="w-3.5 h-3.5"></i>
+                                Phân Tích Nguyên Liệu Thời Gian Thực
+                            </h4>
+                            <div id="livePredictionBars" class="space-y-2">
+                                <div class="text-xs text-slate-500 text-center py-6">
+                                    Bật camera để bắt đầu nhận diện thời gian thực
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Captured Snapshots Gallery -->
+                        <div class="mt-6 pt-4 border-t border-slate-700">
+                            <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
+                                <span>Ảnh đã chụp (<span id="snapshotCount">0</span>)</span>
+                            </h4>
+                            <div id="snapshotGallery" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                                <!-- Thumbnails here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-900/60 mt-auto py-4 text-center text-xs text-slate-500">
+        Phát triển ứng dụng Xử Lý Ảnh (Computer Vision) với YOLOv8 & PyTorch. Tích hợp Hình ảnh, Video và Camera trực tiếp.
+    </footer>
+
+        <!-- Modal: Báo Cáo Dữ Liệu (Hình 2.1 & Hình 2.2) -->
+    <div id="overviewModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                        <i data-lucide="folder-tree" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 id="modalTitle" class="text-base font-semibold text-white">Hình 2.2: Cấu Trúc Thư Mục Dữ Liệu</h3>
+                        <p id="modalSub" class="text-xs text-slate-400">Sơ đồ tổ chức phân cấp tập dữ liệu (70% Train - 15% Val - 15% Test)</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <!-- Figure Selector Tabs -->
+                    <div class="inline-flex rounded-lg bg-slate-800 p-0.5 border border-slate-700 text-xs">
+                        <button id="tabFig21" class="px-2.5 py-1 rounded-md text-slate-300 hover:text-white font-medium transition-all">Hình 2.1 (10 Lớp)</button>
+                        <button id="tabFig22" class="px-2.5 py-1 rounded-md text-slate-300 hover:text-white font-medium transition-all">Hình 2.2 (Cây thư mục)</button>
+                        <button id="tabFig23" class="px-2.5 py-1 rounded-md text-slate-300 hover:text-white font-medium transition-all">Hình 2.3 (Tăng cường)</button>
+                        <button id="tabFigStats" class="px-2.5 py-1 rounded-md bg-orange-500 text-white font-medium transition-all">Thống kê dữ liệu</button>
+                    </div>
+                    <!-- Toggle Theme Preview -->
+                    <div class="inline-flex rounded-lg bg-slate-800 p-0.5 border border-slate-700 text-xs">
+                        <button id="overviewViewDark" class="px-3 py-1 rounded-md bg-slate-700 text-white font-medium transition-all">Bản tối</button>
+                        <button id="overviewViewLight" class="px-3 py-1 rounded-md text-slate-300 hover:text-white font-medium transition-all">Bản sáng (Báo cáo)</button>
+                    </div>
+                    <a id="btnDownloadOverview" href="/static/img/hinh_2_2_directory_structure_dark.png" download="hinh_2_2_cau_truc_thu_muc.png" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-medium text-slate-200 transition-colors">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        <span>Tải ảnh</span>
+                    </a>
+                    <button id="btnCloseOverview" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto space-y-6">
+                <!-- Image Container -->
+                <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950/60 p-2 shadow-inner">
+                    <img id="overviewImgPreview" src="/static/img/hinh_2_2_directory_structure_dark.png" alt="Sơ đồ dữ liệu" class="w-full h-auto rounded-lg shadow-md">
+                </div>
+
+                <!-- Classes Details Grid -->
+                <div id="classesDetailGrid">
+                    <h4 class="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <i data-lucide="list-checks" class="w-4 h-4"></i>
+                        Thống kê chi tiết 10 lớp món ăn (Tổng số: 2.865 ảnh)
+                    </h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs">
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">01.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh bò</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_bo (300 ảnh)</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">02.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh bột lọc</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_bot_loc (300 ảnh)</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">03.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh cống</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_cong (232 ảnh)</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">04.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh da lợn</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_da_lon (300 ảnh)</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">05.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh khọt</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_khot (300 ảnh)</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">06.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh mì</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_mi (300 ảnh)</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">07.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh tai heo</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_tai_heo (300 ảnh)</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">08.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh tiêu</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_tieu (286 ảnh)</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">09.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh trung thu</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_trung_thu (247 ảnh)</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                            <span class="text-orange-400 font-mono font-bold">10.</span>
+                            <span class="font-medium text-slate-200 ml-1">Bánh xèo</span>
+                            <div class="text-[11px] text-slate-400 mt-1 font-mono">banh_xeo (300 ảnh)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Scripts -->
+    <script src="/static/js/app.js"></script>
+    <script>
+        lucide.createIcons();
+
+        // Modal Overview & Figures logic
+        const btnOpenOverview = document.getElementById('btnOpenOverview');
+        const btnCloseOverview = document.getElementById('btnCloseOverview');
+        const overviewModal = document.getElementById('overviewModal');
+        const overviewImgPreview = document.getElementById('overviewImgPreview');
+        const btnDownloadOverview = document.getElementById('btnDownloadOverview');
+        const overviewViewDark = document.getElementById('overviewViewDark');
+        const overviewViewLight = document.getElementById('overviewViewLight');
+        const tabFig21 = document.getElementById('tabFig21');
+        const tabFig22 = document.getElementById('tabFig22');
+        const tabFig23 = document.getElementById('tabFig23');
+        const tabFigStats = document.getElementById('tabFigStats');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalSub = document.getElementById('modalSub');
+        const classesDetailGrid = document.getElementById('classesDetailGrid');
+
+        let currentFig = 'stats'; // 'fig21', 'fig22', 'fig23', or 'stats'
+        let currentTheme = 'dark'; // 'dark' or 'white'
+
+        function updateModalDisplay() {
+            let imgSrc = '';
+            let downloadName = '';
+            
+            // Reset tab styles
+            [tabFig21, tabFig22, tabFig23, tabFigStats].forEach(t => {
+                if (t) t.className = 'px-2.5 py-1 rounded-md text-slate-300 hover:text-white font-medium transition-all';
+            });
+
+            if (currentFig === 'stats') {
+                imgSrc = currentTheme === 'dark' ? '/static/img/thong_ke_du_lieu_dark.png' : '/static/img/thong_ke_du_lieu_white.png';
+                downloadName = `thong_ke_du_lieu_${currentTheme}.png`;
+                modalTitle.textContent = 'Bảng Thống Kê & Phân Bố Tập Dữ Liệu';
+                modalSub.textContent = 'Biểu đồ trực quan hóa số lượng mẫu, tỷ lệ phân chia và độ phân giải ảnh';
+                tabFigStats.className = 'px-2.5 py-1 rounded-md bg-orange-500 text-white font-medium transition-all';
+                classesDetailGrid.classList.remove('hidden');
+            } else if (currentFig === 'fig23') {
+                imgSrc = currentTheme === 'dark' ? '/static/img/hinh_2_3_data_augmentation_dark.png' : '/static/img/hinh_2_3_data_augmentation_white.png';
+                downloadName = `hinh_2_3_tang_cuong_du_lieu_${currentTheme}.png`;
+                modalTitle.textContent = 'Hình 2.3: Minh Họa Các Kỹ Thuật Tăng Cường Dữ Liệu';
+                modalSub.textContent = 'Các phép biến đổi không gian và màu sắc trong pipeline huấn luyện (YOLOv8s & CNN)';
+                tabFig23.className = 'px-2.5 py-1 rounded-md bg-orange-500 text-white font-medium transition-all';
+                classesDetailGrid.classList.remove('hidden');
+            } else if (currentFig === 'fig22') {
+                imgSrc = currentTheme === 'dark' ? '/static/img/hinh_2_2_directory_structure_dark.png' : '/static/img/hinh_2_2_directory_structure_white.png';
+                downloadName = `hinh_2_2_cau_truc_thu_muc_${currentTheme}.png`;
+                modalTitle.textContent = 'Hình 2.2: Cấu Trúc Thư Mục Dữ Liệu';
+                modalSub.textContent = 'Sơ đồ tổ chức phân cấp tập dữ liệu (70% Train - 15% Val - 15% Test)';
+                tabFig22.className = 'px-2.5 py-1 rounded-md bg-orange-500 text-white font-medium transition-all';
+                classesDetailGrid.classList.remove('hidden');
+            } else {
+                imgSrc = currentTheme === 'dark' ? '/static/img/overview_10_classes_dark.png' : '/static/img/overview_10_classes_white.png';
+                downloadName = `hinh_2_1_tong_quan_10_lop_${currentTheme}.png`;
+                modalTitle.textContent = 'Hình 2.1: Tổng Quan 10 Lớp Món Ăn Trong Bộ Dữ Liệu';
+                modalSub.textContent = 'Tập dữ liệu chuẩn hóa phục vụ huấn luyện thị giác máy tính (Computer Vision)';
+                tabFig21.className = 'px-2.5 py-1 rounded-md bg-orange-500 text-white font-medium transition-all';
+                classesDetailGrid.classList.remove('hidden');
+            }
+
+            overviewImgPreview.src = imgSrc;
+            btnDownloadOverview.href = imgSrc;
+            btnDownloadOverview.download = downloadName;
+
+            if (currentTheme === 'dark') {
+                overviewViewDark.className = 'px-3 py-1 rounded-md bg-orange-500 text-white font-medium transition-all';
+                overviewViewLight.className = 'px-3 py-1 rounded-md text-slate-300 hover:text-white font-medium transition-all';
+            } else {
+                overviewViewLight.className = 'px-3 py-1 rounded-md bg-orange-500 text-white font-medium transition-all';
+                overviewViewDark.className = 'px-3 py-1 rounded-md text-slate-300 hover:text-white font-medium transition-all';
+            }
+        }
+
+        if (btnOpenOverview && overviewModal) {
+            btnOpenOverview.addEventListener('click', () => {
+                overviewModal.classList.remove('hidden');
+                updateModalDisplay();
+                lucide.createIcons();
+            });
+            btnCloseOverview.addEventListener('click', () => {
+                overviewModal.classList.add('hidden');
+            });
+            overviewModal.addEventListener('click', (e) => {
+                if (e.target === overviewModal) {
+                    overviewModal.classList.add('hidden');
+                }
+            });
+
+            tabFig21.addEventListener('click', () => {
+                currentFig = 'fig21';
+                updateModalDisplay();
+            });
+            tabFig22.addEventListener('click', () => {
+                currentFig = 'fig22';
+                updateModalDisplay();
+            });
+            tabFig23.addEventListener('click', () => {
+                currentFig = 'fig23';
+                updateModalDisplay();
+            });
+            tabFigStats.addEventListener('click', () => {
+                currentFig = 'stats';
+                updateModalDisplay();
+            });
+
+            overviewViewDark.addEventListener('click', () => {
+                currentTheme = 'dark';
+                updateModalDisplay();
+            });
+            overviewViewLight.addEventListener('click', () => {
+                currentTheme = 'white';
+                updateModalDisplay();
+            });
+        }
+    </script>
+</body>
+</html>
